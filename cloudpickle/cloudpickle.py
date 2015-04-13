@@ -82,7 +82,7 @@ except ImportError:
 
 # These helper functions were copied from PiCloud's util module.
 def islambda(func):
-    return getattr(func,'func_name') == '<lambda>'
+    return getattr(func, 'func_name', None) == '<lambda>'
 
 def xrange_params(xrangeobj):
     """Returns a 3 element tuple describing the xrange start, step, and len
@@ -233,7 +233,6 @@ class CloudPickler(pickle.Pickler):
                     write(pickle.MARK)
                     self.save_reduce(django_settings_load, (django_mod.__name__,), obj=django_mod)
                     write(pickle.POP_MARK)
-
 
         # if func is lambda, def'ed at prompt, is in main, or is nested, then
         # we'll pickle the actual function object rather than simply saving a
@@ -686,13 +685,14 @@ class CloudPickler(pickle.Pickler):
             raise pickle.PicklingError("Cannot pickle standard input")
         if  hasattr(obj, 'isatty') and obj.isatty():
             raise pickle.PicklingError("Cannot pickle files that map to tty objects")
-        if 'r' not in obj.mode:
-            raise pickle.PicklingError("Cannot pickle files that are not opened for reading")
+        #if 'r' not in obj.mode:
+        #    raise pickle.PicklingError("Cannot pickle files that are not opened for reading")
         name = obj.name
-        try:
-            fsize = os.stat(name).st_size
-        except OSError:
-            raise pickle.PicklingError("Cannot pickle file %s as it cannot be stat" % name)
+        fsize = 1
+        #try:
+        #    fsize = os.stat(name).st_size
+        #except OSError:
+        #    raise pickle.PicklingError("Cannot pickle file %s as it cannot be stat" % name)
 
         if obj.closed:
             #create an empty closed string io
@@ -710,9 +710,17 @@ class CloudPickler(pickle.Pickler):
                 raise pickle.PicklingError("Cannot pickle file %s as it does not appear to map to a physical, real file" % name)
         else:
             try:
-                tmpfile = file(name)
-                contents = tmpfile.read()
-                tmpfile.close()
+
+                # Old code
+                #tmpfile = file(name)
+                #contents = tmpfile.read()
+                #tmpfile.close()
+
+                # New code
+                t_ = obj.tell()
+                contents = obj.read()
+                obj.seek(t_)
+
             except IOError:
                 raise pickle.PicklingError("Cannot pickle file %s as it cannot be read" % name)
             retval = pystringIO.StringIO(contents)

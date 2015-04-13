@@ -1,6 +1,9 @@
 import unittest
 import pickle
 import sys
+import tempfile
+import os
+import shutil
 
 from operator import itemgetter, attrgetter
 from StringIO import StringIO
@@ -86,10 +89,29 @@ class CloudPickleTest(unittest.TestCase):
             self.assertEquals(a,b)
 
     # Regression test for SPARK-3415
-    def test_pickling_file_handles(self):
-        out1 = sys.stderr
-        out2 = pickle.loads(cloudpickle.dumps(out1))
-        self.assertEquals(out1, out2)
+    def test_pickling_special_file_handles(self):
+        for out in sys.stdout, sys.stderr:
+            self.assertEquals(out, pickle.loads(cloudpickle.dumps(out)))
+
+    def test_pickling_regular_file_handles(self):
+        tmpdir = tempfile.mkdtemp()
+        tmpfile = os.path.join(tmpdir, 'testfile')
+        teststring = 'Hello world!'
+        try:
+            with open(tmpfile, 'w') as f:
+                f.write(teststring)
+            with open(tmpfile, 'r') as f:
+                self.assertEquals(teststring, pickle.loads(cloudpickle.dumps(f)).read())
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def FAILING_test_pickling_temp_file(self):
+        teststring = 'Hello world!'
+        with tempfile.NamedTemporaryFile() as fp:
+            fp.write(teststring)
+            fp.seek(0)
+            f = fp.file
+            self.assertEquals(teststring, pickle.loads(cloudpickle.dumps(f)).read())
 
     def test_func_globals(self):
         class Unpicklable(object):
@@ -106,6 +128,11 @@ class CloudPickleTest(unittest.TestCase):
 
         self.assertTrue("exit" in foo.func_code.co_names)
         cloudpickle.dumps(foo)
+
+    def test_builtin_dicts(self):
+        f = dir
+        self.assertEquals(f, pickle.loads(cloudpickle.dumps(f)))
+
 
 if __name__ == '__main__':
     unittest.main()
